@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e3a8a">
+    <title>MIC電信門號管理系統 v2.0</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [v-cloak] { display: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-ring { 0%{ transform: scale(0.8); opacity:1; } 100%{ transform: scale(1.5); opacity:0; } }
+        @keyframes countUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+        .animate-count-up { animation: countUp 0.6s ease-out forwards; }
+
+        /* Dark mode overrides */
+        .dark body { background-color: #0f172a; color: #e2e8f0; }
+        .dark .bg-white { background-color: #1e293b !important; }
+        .dark .bg-slate-50 { background-color: #1e293b !important; }
+        .dark .bg-slate-100 { background-color: #334155 !important; }
+        .dark .text-slate-800 { color: #f1f5f9 !important; }
+        .dark .text-slate-700 { color: #e2e8f0 !important; }
+        .dark .text-slate-600 { color: #cbd5e1 !important; }
+        .dark .text-slate-500 { color: #94a3b8 !important; }
+        .dark .text-slate-400 { color: #64748b !important; }
+        .dark .border-slate-100, .dark .border-slate-200 { border-color: #334155 !important; }
+        .dark .border-slate-300 { border-color: #475569 !important; }
+        .dark .divide-slate-100 > * + * { border-color: #334155 !important; }
+        .dark .bg-slate-900\/40 { background-color: rgba(15,23,42,0.8) !important; }
+        .dark .shadow-slate-200\/50 { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3) !important; }
+        .dark input, .dark select, .dark textarea { background-color: #0f172a !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+        .dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
+
+        /* Mobile responsive table */
+        @media (max-width: 768px) {
+            .mobile-table, .mobile-table tbody, .mobile-table tr, .mobile-table td { display: block; width: 100%; }
+            .mobile-table thead { display: none; }
+            .mobile-table tr {
+                margin-bottom: 1.25rem; background-color: white; border-radius: 1rem;
+                box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; overflow: hidden;
+            }
+            .mobile-table td {
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 1rem 1.25rem; border-bottom: 1px solid #f8fafc; text-align: right; font-size: 0.875rem;
+            }
+            .mobile-table td:last-child { border-bottom: none; background-color: #f8fafc; }
+            .mobile-table td::before {
+                content: attr(data-label); font-weight: 600; color: #64748b; margin-right: 1rem; text-align: left;
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Sort indicator */
+        .sort-header { cursor: pointer; user-select: none; transition: all 0.2s; }
+        .sort-header:hover { background-color: #e0e7ff; }
+        .sort-header .sort-icon { transition: transform 0.2s; }
+        .sort-header.sorted .sort-icon { color: #4f46e5; }
+        .sort-header.sorted-desc .sort-icon { transform: rotate(180deg); color: #4f46e5; }
+
+        /* Card hover effect */
+        .stat-card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(79,70,229,0.2); }
+
+        /* Tooltip */
+        .tooltip-wrapper { position: relative; }
+        .tooltip-wrapper .tooltip-text {
+            visibility: hidden; opacity: 0; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            background: #1e293b; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; white-space: nowrap;
+            margin-bottom: 8px; transition: all 0.2s; z-index: 100; pointer-events: none;
+        }
+        .tooltip-wrapper:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+        /* Chip tags */
+        .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+
+        /* Pagination */
+        .page-btn { min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+        .page-btn.active { background: #4f46e5; color: white; }
+        .page-btn:not(.active):hover { background: #e0e7ff; color: #4f46e5; }
+
+        /* Quick action FAB */
+        .fab-menu { position: fixed; bottom: 24px; right: 24px; z-index: 40; }
+        .fab-btn { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s; }
+        .fab-btn:hover { transform: scale(1.1); }
+        .fab-sub { opacity: 0; transform: translateY(10px) scale(0.8); transition: all 0.2s; pointer-events: none; }
+        .fab-sub.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+        /* Print styles */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .shadow-lg, .shadow-md, .shadow-sm, .shadow-xl { box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen selection:bg-indigo-200 selection:text-indigo-900">
+    <div id="app" v-cloak class="max-w-screen-2xl mx-auto p-4 sm:p-6 pb-20">
+
+        <!-- ====== HEADER ====== -->
+        <header class="flex flex-col sm:flex-row justify-between items-center bg-gradient-to-r from-blue-900 via-indigo-800 to-blue-900 text-white p-5 rounded-2xl shadow-xl mb-6 gap-5 border border-indigo-700/50 no-print">
+            <h1 class="text-2xl font-extrabold tracking-wide drop-shadow-md flex items-center">
+                <span class="bg-white/20 p-2 rounded-xl mr-3 backdrop-blur-sm"><i class="fas fa-satellite-dish text-blue-200"></i></span>
+                MIC 電信管理中樞
+                <span class="ml-2 text-xs bg-indigo-400/30 px-2 py-0.5 rounded-full border border-indigo-300/40">v2.0</span>
+            </h1>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <!-- Dark mode toggle -->
+                <button @click="toggleDarkMode" class="w-10 h-10 rounded-xl bg-black/20 hover:bg-black/30 flex items-center justify-center transition-all backdrop-blur-sm text-lg">
+                    <i :class="isDark ? 'fas fa-sun text-yellow-300' : 'fas fa-moon text-blue-200'"></i>
+                </button>
+                <!-- Tabs -->
+                <div class="flex gap-1 bg-black/20 p-1.5 rounded-xl overflow-x-auto flex-1 sm:flex-none backdrop-blur-sm shadow-inner">
+                    <button @click="switchTab('active')" :class="currentTab === 'active' ? 'bg-white text-indigo-900 shadow-md scale-100' : 'text-indigo-100 hover:bg-white/10 hover:text-white scale-95'" class="px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all duration-300">營運中</button>
+                    <button @click="switchTab('terminated')" :class="currentTab === 'terminated' ? 'bg-white text-indigo-900 shadow-md scale-100' : 'text-indigo-100 hover:bg-white/10 hover:text-white scale-95'" class="px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all duration-300">已退租/解約</button>
+                    <button @click="switchTab('stats')" :class="currentTab === 'stats' ? 'bg-white text-indigo-900 shadow-md scale-100' : 'text-indigo-100 hover:bg-white/10 hover:text-white scale-95'" class="px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all duration-300">統計報表</button>
+                    <button @click="switchTab('analytics')" :class="currentTab === 'analytics' ? 'bg-white text-indigo-900 shadow-md scale-100' : 'text-indigo-100 hover:bg-white/10 hover:text-white scale-95'" class="px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all duration-300">分析中心</button>
+                    <button @click="switchTab('cols')" :class="currentTab === 'cols' ? 'bg-white text-indigo-900 shadow-md scale-100' : 'text-indigo-100 hover:bg-white/10 hover:text-white scale-95'" class="px-4 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all duration-300"><i class="fas fa-cog"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <input type="file" id="fileUpload" @change="handleFileUpload" accept=".csv, .xlsx, .xls" class="hidden">
+
+        <!-- ====== DATA TABS (active / terminated) ====== -->
+        <main v-if="currentTab === 'active' || currentTab === 'terminated'" class="animate-fade-in">
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-slide-up">
+                <div class="stat-card bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-indigo-200 text-xs font-semibold uppercase tracking-wider">營運中</p>
+                            <p class="text-3xl font-black mt-1 animate-count-up">{{ activeCount }}</p>
+                        </div>
+                        <i class="fas fa-signal text-3xl text-indigo-300/60"></i>
+                    </div>
+                </div>
+                <div class="stat-card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-emerald-200 text-xs font-semibold uppercase tracking-wider">使用中</p>
+                            <p class="text-3xl font-black mt-1 animate-count-up">{{ usingCount }}</p>
+                        </div>
+                        <i class="fas fa-check-circle text-3xl text-emerald-300/60"></i>
+                    </div>
+                </div>
+                <div class="stat-card bg-gradient-to-br from-amber-500 to-amber-600 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-amber-200 text-xs font-semibold uppercase tracking-wider">借用中</p>
+                            <p class="text-3xl font-black mt-1 animate-count-up">{{ borrowCount }}</p>
+                        </div>
+                        <i class="fas fa-hand-holding text-3xl text-amber-300/60"></i>
+                    </div>
+                </div>
+                <div class="stat-card bg-gradient-to-br from-slate-600 to-slate-700 text-white p-5 rounded-2xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-300 text-xs font-semibold uppercase tracking-wider">已退租/解約</p>
+                            <p class="text-3xl font-black mt-1 animate-count-up">{{ terminatedCount }}</p>
+                        </div>
+                        <i class="fas fa-times-circle text-3xl text-slate-400/60"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 mb-6">
+                <!-- Toolbar -->
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-5 gap-4">
+                    <div class="relative w-full lg:w-[420px] group">
+                        <i class="fas fa-search absolute left-5 top-3.5 text-slate-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                        <input type="text" v-model="searchQuery" placeholder="搜尋任意關鍵字..."
+                            class="w-full bg-slate-50 border border-slate-200 rounded-full pl-12 pr-12 py-3 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm font-medium text-slate-700">
+                        <button v-if="searchQuery" @click="searchQuery=''" class="absolute right-4 top-3 text-slate-400 hover:text-red-500 transition-colors">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 w-full lg:w-auto">
+                        <!-- Advanced filter toggle -->
+                        <button @click="showFilter = !showFilter" :class="showFilter ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-white border-slate-200 text-slate-600'"
+                            class="border-2 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center transition-all active:scale-95">
+                            <i class="fas fa-sliders-h mr-2"></i>進階篩選
+                        </button>
+                        <button @click="triggerFileUpload" class="bg-white border-2 border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all active:scale-95 text-sm font-bold flex items-center">
+                            <i class="fas fa-file-import mr-2"></i>匯入
+                        </button>
+                        <button @click="openAddModal" class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2.5 rounded-xl shadow-md shadow-blue-500/30 hover:shadow-lg hover:from-indigo-500 hover:to-blue-500 transition-all active:scale-95 text-sm font-bold flex items-center">
+                            <i class="fas fa-plus mr-2"></i>新增
+                        </button>
+                        <button @click="exportToExcel" class="bg-emerald-500 text-white px-4 py-2.5 rounded-xl shadow-md shadow-emerald-500/30 hover:shadow-lg hover:bg-emerald-400 transition-all active:scale-95 text-sm font-bold flex items-center">
+                            <i class="fas fa-download mr-2"></i>匯出
+                        </button>
+                        <button @click="printView" class="bg-slate-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:bg-slate-500 transition-all active:scale-95 text-sm font-bold flex items-center">
+                            <i class="fas fa-print mr-2"></i>列印
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Advanced Filter Panel -->
+                <div v-if="showFilter" class="mb-5 p-5 bg-gradient-to-br from-slate-50 to-indigo-50/50 rounded-2xl border border-indigo-100 animate-fade-in">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div v-for="col in filterableColumns" :key="col.key" class="flex flex-col">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">{{ col.label }}</label>
+                            <select v-model="filters[col.key]" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-white">
+                                <option value="">全部</option>
+                                <option v-for="opt in getFilterOptions(col.key)" :key="opt" :value="opt">{{ opt }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-3">
+                        <button @click="clearFilters" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center">
+                            <i class="fas fa-eraser mr-1"></i>清除所有篩選條件
+                        </button>
+                        <span class="text-xs text-slate-400">已套用的篩選：{{ activeFilterCount }} 個條件</span>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                    <table class="mobile-table w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider font-semibold border-b border-slate-200 sticky top-0">
+                            <tr>
+                                <th class="p-4 pl-6 w-24">操作</th>
+                                <template v-for="col in columns" :key="col.key">
+                                    <th v-if="col.visible"
+                                        class="p-4 sort-header" :class="{'sorted': sortKey===col.key && sortAsc, 'sorted-desc': sortKey===col.key && !sortAsc}"
+                                        @click="toggleSort(col.key)">
+                                        {{ col.label }}
+                                        <i class="fas fa-sort sort-icon ml-1 text-slate-300 text-[10px]"></i>
+                                    </th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="item in paginatedItems" :key="item.__id" class="hover:bg-indigo-50/50 transition-colors group">
+                                <td class="p-4 pl-6" data-label="資料操作">
+                                    <div class="flex gap-2">
+                                        <button @click="editItem(item)" class="bg-white border border-amber-300 text-amber-600 hover:bg-amber-500 hover:text-white hover:border-amber-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center">
+                                            <i class="fas fa-pen mr-1"></i>編輯
+                                        </button>
+                                        <button @click="duplicateItem(item)" class="bg-white border border-blue-300 text-blue-600 hover:bg-blue-500 hover:text-white hover:border-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center tooltip-wrapper">
+                                            <i class="fas fa-copy mr-1"></i>複製
+                                            <span class="tooltip-text">複製此筆資料為新紀錄</span>
+                                        </button>
+                                        <button @click="deleteItem(item)" class="bg-white border border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center tooltip-wrapper">
+                                            <i class="fas fa-trash mr-1"></i>
+                                            <span class="tooltip-text">刪除記錄</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <template v-for="col in columns">
+                                    <td v-if="col.visible" :key="col.key" class="p-4 text-slate-700 font-medium" :data-label="col.label">
+                                        <div v-if="col.type==='textarea'" class="whitespace-pre-wrap max-h-24 overflow-y-auto custom-scrollbar text-xs bg-slate-50 border border-slate-100 p-2.5 rounded-lg w-56 sm:w-72 leading-relaxed text-slate-600 shadow-inner">{{ item[col.key] || '無' }}</div>
+                                        <span v-else :class="getStatusClass(col.key, item[col.key])">{{ item[col.key] || '-' }}</span>
+                                    </td>
+                                </template>
+                            </tr>
+                            <tr v-if="paginatedItems.length === 0">
+                                <td :colspan="columns.filter(c=>c.visible).length + 1" class="text-center p-16 bg-slate-50/50">
+                                    <div class="inline-flex flex-col items-center justify-center text-slate-400">
+                                        <div class="bg-white p-4 rounded-full shadow-sm mb-4"><i class="fas fa-folder-open text-4xl text-indigo-300"></i></div>
+                                        <p class="font-medium">此區塊尚無資料</p>
+                                        <p class="text-xs mt-1">請嘗試匯入檔案或調整篩選條件</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <span class="text-sm text-slate-500 font-medium">
+                        顯示結果：共 <strong class="text-indigo-600 text-base">{{ filteredItems.length }}</strong> 筆紀錄
+                        <span v-if="totalPages > 1">（第 {{ currentPage }} / {{ totalPages }} 頁）</span>
+                    </span>
+                    <div v-if="totalPages > 1" class="flex items-center gap-2">
+                        <select v-model="pageSize" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20">
+                            <option :value="10">10 筆/頁</option>
+                            <option :value="25">25 筆/頁</option>
+                            <option :value="50">50 筆/頁</option>
+                            <option :value="100">100 筆/頁</option>
+                        </select>
+                        <div class="flex items-center gap-1">
+                            <button @click="currentPage = 1" :disabled="currentPage === 1" class="page-btn border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <i class="fas fa-angle-double-left"></i>
+                            </button>
+                            <button @click="currentPage--" :disabled="currentPage === 1" class="page-btn border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <i class="fas fa-angle-left"></i>
+                            </button>
+                            <template v-for="p in visiblePages" :key="p">
+                                <span v-if="p === '...'" class="page-btn text-slate-400 cursor-default">...</span>
+                                <button v-else @click="currentPage = p" :class="currentPage === p ? 'active' : ''" class="page-btn border border-slate-200">
+                                    {{ p }}
+                                </button>
+                            </template>
+                            <button @click="currentPage++" :disabled="currentPage === totalPages" class="page-btn border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <i class="fas fa-angle-right"></i>
+                            </button>
+                            <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="page-btn border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <i class="fas fa-angle-double-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ====== STATS TAB ====== -->
+        <main v-if="currentTab === 'stats'" class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg border border-slate-100 animate-fade-in">
+            <div class="flex items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="bg-indigo-100 p-3 rounded-xl mr-4"><i class="fas fa-chart-pie text-2xl text-indigo-600"></i></div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-800">動態資料統計引擎</h2>
+                    <p class="text-sm text-slate-500 mt-1">即時分析營運中的門號，點擊左方列表可檢視詳細清單</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                <label class="font-bold text-slate-700 flex items-center"><i class="fas fa-filter mr-2 text-slate-400"></i>選擇統計維度：</label>
+                <select v-model="statGroupBy" class="border-2 border-slate-200 p-3 rounded-xl bg-white focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none w-full sm:w-72 shadow-sm font-bold text-indigo-900 transition-all cursor-pointer">
+                    <template v-for="col in columns.filter(c=>c.type==='text')" :key="col.key">
+                        <option :value="col.key">依照【{{ col.label }}】分析</option>
+                    </template>
+                </select>
+                <button @click="exportStatsReport" class="bg-indigo-600 text-white px-5 py-3 rounded-xl shadow-md hover:bg-indigo-700 transition-all active:scale-95 text-sm font-bold flex items-center">
+                    <i class="fas fa-file-export mr-2"></i>匯出統計報告
+                </button>
+            </div>
+
+            <!-- Stats Chart -->
+            <div class="mb-6 p-5 bg-gradient-to-br from-indigo-50/50 to-blue-50/50 rounded-2xl border border-indigo-100">
+                <canvas ref="statsChart" height="280"></canvas>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <!-- Left: Stats Table -->
+                <div class="lg:col-span-2 overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-white flex flex-col h-[500px]">
+                    <div class="overflow-y-auto flex-1">
+                        <table class="w-full text-left text-sm relative">
+                            <thead class="bg-slate-50 sticky top-0 shadow-sm z-10 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-4 font-bold text-slate-500 uppercase tracking-wider text-xs">#</th>
+                                    <th class="p-4 font-bold text-slate-500 uppercase tracking-wider text-xs">{{ statGroupBy }}</th>
+                                    <th class="p-4 font-bold text-slate-500 uppercase tracking-wider text-xs text-right">數量</th>
+                                    <th class="p-4 font-bold text-slate-500 uppercase tracking-wider text-xs text-right">佔比</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="(stat, index) in statsData" :key="stat[0]"
+                                    @click="selectedStatItem = stat[0]"
+                                    class="transition-colors cursor-pointer group"
+                                    :class="selectedStatItem === stat[0] ? 'bg-indigo-50' : 'hover:bg-slate-50'">
+                                    <td class="p-4 text-slate-400 text-xs">{{ index + 1 }}</td>
+                                    <td class="p-4 font-bold text-slate-700 flex items-center border-l-4 transition-all" :class="selectedStatItem === stat[0] ? 'border-indigo-600' : 'border-transparent'">
+                                        {{ stat[0] }}
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <span class="py-1 px-3 rounded-full font-black text-xs shadow-sm transition-colors" :class="selectedStatItem === stat[0] ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800'">{{ stat[1] }}</span>
+                                    </td>
+                                    <td class="p-4 text-right text-sm font-semibold text-slate-500">
+                                        {{ stat[3] }}%
+                                    </td>
+                                </tr>
+                                <tr v-if="statsData.length === 0">
+                                    <td colspan="4" class="p-10 text-center text-slate-400 font-medium bg-slate-50/50">目前沒有營運中的門號可供統計</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Detail Panel -->
+                <div class="lg:col-span-3 flex flex-col bg-slate-50 rounded-2xl border border-slate-200 shadow-inner overflow-hidden h-[500px]">
+                    <div v-if="!selectedStatItem" class="flex-1 flex flex-col justify-center items-center p-8 opacity-70">
+                        <i class="fas fa-hand-pointer text-6xl text-indigo-300 mb-6 drop-shadow-md"></i>
+                        <h3 class="text-lg font-bold text-slate-700 mb-2">請點擊左側的分類項目</h3>
+                        <p class="text-slate-500 text-center text-sm leading-relaxed">
+                            點擊後，此區塊將列出屬於該分類的所有門號詳細清單
+                        </p>
+                    </div>
+                    <div v-else class="flex-1 flex flex-col overflow-hidden animate-fade-in">
+                        <div class="bg-indigo-600 p-4 flex justify-between items-center shadow-md z-20">
+                            <h3 class="font-bold text-white flex items-center tracking-wide">
+                                <i class="fas fa-list-ul mr-2 text-indigo-200"></i>
+                                【{{ selectedStatItem }}】明細資料
+                            </h3>
+                            <span class="bg-white/20 text-white text-xs px-3 py-1.5 rounded-full font-bold border border-white/30 shadow-sm">{{ statDetailedItems.length }} 筆符合</span>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-0 bg-white">
+                            <table class="w-full text-left text-sm whitespace-nowrap">
+                                <thead class="bg-slate-50 sticky top-0 shadow-sm z-10 border-b border-slate-200">
+                                    <tr>
+                                        <template v-for="col in columns.filter(c=>c.visible).slice(0, 5)" :key="col.key">
+                                            <th class="p-3 font-bold text-slate-500 text-xs uppercase tracking-wider">{{ col.label }}</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr v-for="item in statDetailedItems" :key="item.__id" class="hover:bg-indigo-50/50 transition-colors">
+                                        <template v-for="col in columns.filter(c=>c.visible).slice(0, 5)" :key="col.key">
+                                            <td class="p-3 text-slate-700 font-medium">
+                                                <span :class="getStatusClass(col.key, item[col.key])">{{ item[col.key] || '-' }}</span>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ====== ANALYTICS TAB (NEW) ====== -->
+        <main v-if="currentTab === 'analytics'" class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg border border-slate-100 animate-fade-in">
+            <div class="flex items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="bg-violet-100 p-3 rounded-xl mr-4"><i class="fas fa-chart-bar text-2xl text-violet-600"></i></div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-800">深度分析中心</h2>
+                    <p class="text-sm text-slate-500 mt-1">多維度交叉分析、趨勢洞察與異常偵測</p>
+                </div>
+            </div>
+
+            <!-- Analytics Controls -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">分析維度 A (X軸)</label>
+                    <select v-model="analyticsDimA" class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-white transition-all">
+                        <template v-for="col in analyticsColumns" :key="col.key">
+                            <option :value="col.key">{{ col.label }}</option>
+                        </template>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">分析維度 B (Y軸 / 數值)</label>
+                    <select v-model="analyticsDimB" class="border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 bg-white transition-all">
+                        <option value="count">門號數量（計數）</option>
+                        <template v-for="col in analyticsColumns" :key="col.key">
+                            <option :value="col.key">{{ col.label }}</option>
+                        </template>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">圖表類型</label>
+                    <div class="flex gap-2">
+                        <button @click="chartType = 'bar'" :class="chartType === 'bar' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all">
+                            <i class="fas fa-chart-bar"></i> 柱狀
+                        </button>
+                        <button @click="chartType = 'pie'" :class="chartType === 'pie' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all">
+                            <i class="fas fa-chart-pie"></i> 圓餅
+                        </button>
+                        <button @click="chartType = 'doughnut'" :class="chartType === 'doughnut' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all">
+                            <i class="fas fa-circle-notch"></i> 甜甜圈
+                        </button>
+                        <button @click="chartType = 'line'" :class="chartType === 'line' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all">
+                            <i class="fas fa-chart-line"></i> 折線
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Chart -->
+            <div class="mb-6 p-5 bg-gradient-to-br from-violet-50/50 to-fuchsia-50/50 rounded-2xl border border-violet-100">
+                <canvas ref="analyticsChart" height="320"></canvas>
+            </div>
+
+            <!-- Cross-tab / Pivot Table -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-extrabold text-slate-700 flex items-center">
+                        <i class="fas fa-table mr-2 text-slate-400"></i>交叉分析對照表
+                    </h3>
+                    <button @click="exportAnalyticsExcel" class="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition-all active:scale-95 flex items-center">
+                        <i class="fas fa-file-excel mr-2"></i>匯出 Excel
+                    </button>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="p-3 border-r border-slate-200">{{ analyticsColumns.find(c=>c.key===analyticsDimA)?.label || analyticsDimA }}</th>
+                                <template v-for="key in crossTabKeys" :key="key">
+                                    <th class="p-3 text-center border-r border-slate-100">
+                                        <span v-if="key === '__total'" class="font-black">總計</span>
+                                        <span v-else>{{ key }}</span>
+                                    </th>
+                                </template>
+                                <th class="p-3 text-center font-black bg-slate-100">總計</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="(row, rIdx) in crossTabData" :key="rIdx" class="hover:bg-violet-50/30 transition-colors">
+                                <td class="p-3 font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap">{{ row.key }}</td>
+                                <template v-for="colKey in crossTabKeys" :key="colKey">
+                                    <td class="p-3 text-center text-sm" :class="crossTabData[rIdx][colKey] === crossTabMax[row.key]?.[colKey] ? 'bg-violet-100 font-bold text-violet-700' : ''">
+                                        {{ row[colKey] || 0 }}
+                                    </td>
+                                </template>
+                                <td class="p-3 text-center font-bold bg-slate-50 text-slate-700">{{ row.__total || 0 }}</td>
+                            </tr>
+                            <tr v-if="crossTabData.length === 0">
+                                <td :colspan="crossTabKeys.length + 2" class="p-8 text-center text-slate-400">尚無資料可進行交叉分析</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Anomaly Detection -->
+            <div>
+                <h3 class="text-lg font-extrabold text-slate-700 flex items-center mb-4">
+                    <i class="fas fa-exclamation-triangle mr-2 text-amber-500"></i>異常偵測報告
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div v-for="(alert, i) in anomalyAlerts" :key="i" class="p-4 rounded-xl border animate-fade-in"
+                        :class="alert.level === 'high' ? 'bg-red-50 border-red-200' : alert.level === 'medium' ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'">
+                        <div class="flex items-start gap-3">
+                            <i :class="alert.level === 'high' ? 'fas fa-exclamation-circle text-red-500' : alert.level === 'medium' ? 'fas fa-exclamation-triangle text-amber-500' : 'fas fa-info-circle text-blue-500'" class="text-lg mt-0.5"></i>
+                            <div>
+                                <p class="font-bold text-sm" :class="alert.level === 'high' ? 'text-red-800' : alert.level === 'medium' ? 'text-amber-800' : 'text-blue-800'">{{ alert.title }}</p>
+                                <p class="text-xs mt-1 text-slate-600 leading-relaxed">{{ alert.message }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="anomalyAlerts.length === 0" class="col-span-full p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
+                        <i class="fas fa-check-circle text-3xl text-emerald-400 mb-3"></i>
+                        <p class="font-medium">目前未偵測到異常狀況</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ====== COLUMN MANAGER TAB ====== -->
+        <main v-if="currentTab === 'cols'" class="bg-white p-5 sm:p-6 rounded-2xl shadow-lg border border-slate-100 animate-fade-in">
+            <div class="flex items-center mb-6 border-b border-slate-100 pb-4">
+                <div class="bg-blue-100 p-3 rounded-xl mr-4"><i class="fas fa-sliders-h text-2xl text-blue-600"></i></div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-slate-800">動態欄位總管</h2>
+                    <p class="text-sm text-slate-500 mt-1">自訂顯示名稱、增減系統追蹤的資料欄位</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-stretch gap-4 mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="relative flex-1">
+                    <i class="fas fa-keyboard absolute left-4 top-4 text-slate-400"></i>
+                    <input v-model="colManage.newKey" type="text" placeholder="輸入新欄位名稱..." class="bg-white border-2 border-slate-200 rounded-xl pl-12 pr-4 py-3 w-full outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium">
+                </div>
+                <select v-model="colManage.newType" class="bg-white border-2 border-slate-200 p-3 rounded-xl w-full sm:w-auto outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700 font-medium cursor-pointer transition-all">
+                    <option value="text">一般單行文字</option>
+                    <option value="date">日期選單</option>
+                    <option value="textarea">多行備註欄位</option>
+                    <option value="select">下拉選單</option>
+                    <option value="number">數字欄位</option>
+                </select>
+                <button @click="addColumn" class="bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-700 hover:shadow-lg font-bold shadow-md w-full sm:w-auto transition-all active:scale-95 flex items-center justify-center whitespace-nowrap">
+                    <i class="fas fa-plus mr-2"></i>建立欄位
+                </button>
+            </div>
+
+            <div class="grid grid-cols
+-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div v-for="(col, index) in columns" :key="index" class="group border border-slate-200 p-5 rounded-2xl flex justify-between items-center bg-white shadow-sm hover:shadow-md hover:border-blue-300 hover:-translate-y-1 transition-all">
+                    <div class="flex items-center gap-4 w-full">
+                        <label class="relative flex items-center cursor-pointer">
+                            <input type="checkbox" v-model="col.visible" class="peer sr-only">
+                            <div class="w-6 h-6 bg-slate-100 border-2 border-slate-300 rounded-md peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xs opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+                            </div>
+                        </label>
+                        <div class="flex-1">
+                            <input type="text" v-model="col.label" class="border-b-2 border-dashed border-transparent hover:border-slate-300 focus:border-blue-500 bg-transparent focus:outline-none font-bold text-slate-700 w-full transition-colors cursor-text py-1" title="點擊修改顯示名稱">
+                            <div class="flex items-center gap-2 mt-1.5">
+                                <span class="inline-block text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-wider">
+                                    {{ col.type === 'date' ? '日期' : col.type === 'textarea' ? '長文' : col.type === 'select' ? '選單' : col.type === 'number' ? '數字' : '文字' }}
+                                </span>
+                                <button v-if="col.type === 'select'" @click="editSelectOptions(col)" class="text-[10px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center">
+                                    <i class="fas fa-edit mr-0.5"></i>編輯選項
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button @click="moveColumnUp(index)" v-if="index > 0" class="text-slate-400 hover:text-blue-500 p-2 transition-colors rounded-lg hover:bg-blue-50" title="上移"><i class="fas fa-chevron-up text-xs"></i></button>
+                        <button @click="moveColumnDown(index)" v-if="index < columns.length - 1" class="text-slate-400 hover:text-blue-500 p-2 transition-colors rounded-lg hover:bg-blue-50" title="下移"><i class="fas fa-chevron-down text-xs"></i></button>
+                        <button @click="deleteColumn(index)" class="text-slate-300 hover:text-red-500 p-2 transition-colors rounded-lg hover:bg-red-50 ml-2" title="刪除欄位"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import columns from file -->
+            <div class="mt-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
+                <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-file-import mr-2 text-blue-500"></i>從 Excel 自動識別欄位</h3>
+                <p class="text-sm text-slate-500 mb-3">匯入一個 Excel 檔，系統會自動偵測所有欄位名稱並加入欄位清單</p>
+                <input type="file" id="colImport" @change="importColumnsFromFile" accept=".csv, .xlsx, .xls" class="hidden">
+                <button @click="document.getElementById('colImport').click()" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all active:scale-95 flex items-center">
+                    <i class="fas fa-upload mr-2"></i>選擇檔案掃描欄位
+                </button>
+            </div>
+        </main>
+
+        <!-- ====== MODAL ====== -->
+        <div v-if="isModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 sm:p-6 transition-opacity animate-fade-in">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+
+                <div class="flex justify-between items-center p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                    <h3 class="text-xl font-extrabold text-slate-800 flex items-center">
+                        <div class="p-2 rounded-xl mr-3" :class="isEditing ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'">
+                            <i class="fas" :class="isEditing ? 'fa-pen-nib' : 'fa-asterisk'"></i>
+                        </div>
+                        {{ isEditing ? '編輯門號屬性' : '建立新門號紀錄' }}
+                    </h3>
+                    <button @click="isModalOpen = false" class="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 w-10 h-10 rounded-full flex items-center justify-center transition-colors text-xl">&times;</button>
+                </div>
+
+                <div class="p-5 sm:p-6 overflow-y-auto flex-1 bg-slate-50/30">
+
+                    <!-- Smart Fill Engine -->
+                    <div class="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-2xl border border-indigo-100/50 flex flex-col sm:flex-row items-center gap-4 mb-6 shadow-sm">
+                        <div class="flex-1 text-sm text-indigo-900">
+                            <strong class="flex items-center text-base mb-1"><i class="fas fa-bolt text-amber-400 mr-2 text-lg"></i> 智慧帶入引擎</strong>
+                            輸入<span class="bg-white font-bold px-2 py-0.5 rounded shadow-sm mx-1">編號門號</span>或<span class="bg-white font-bold px-2 py-0.5 rounded shadow-sm mx-1">識別碼</span>，系統將自動比對歷史資料。
+                        </div>
+                        <button type="button" @click="loadCoreData" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-indigo-700 hover:shadow-lg shadow-md transition-all active:scale-95 whitespace-nowrap flex items-center">
+                            <i class="fas fa-magic mr-2"></i> 搜尋並帶入
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                        <div v-for="col in columns" :key="col.key" class="flex flex-col group">
+                            <label class="block text-sm font-bold text-slate-600 mb-1.5 group-focus-within:text-indigo-600 transition-colors">{{ col.label }}</label>
+
+                            <input v-if="col.type === 'text'" type="text" v-model="formItem[col.key]" class="block w-full bg-slate-50 rounded-xl border border-slate-200 px-4 py-2.5 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all text-slate-800 font-medium">
+
+                            <input v-else-if="col.type === 'date'" type="date" v-model="formItem[col.key]" class="block w-full bg-slate-50 rounded-xl border border-slate-200 px-4 py-2.5 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all text-slate-800 font-medium">
+
+                            <input v-else-if="col.type === 'number'" type="number" v-model="formItem[col.key]" class="block w-full bg-slate-50 rounded-xl border border-slate-200 px-4 py-2.5 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all text-slate-800 font-medium">
+
+                            <select v-else-if="col.type === 'select'" v-model="formItem[col.key]" class="block w-full bg-slate-50 rounded-xl border border-slate-200 px-4 py-2.5 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all text-slate-800 font-medium cursor-pointer">
+                                <option value="">-- 請選擇 --</option>
+                                <template v-for="opt in (col.options || [])" :key="opt">
+                                    <option :value="opt">{{ opt }}</option>
+                                </template>
+                            </select>
+
+                            <div v-else-if="col.type === 'textarea'" class="flex flex-col bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:ring-4 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 focus-within:bg-white transition-all shadow-sm">
+                                <div class="p-3 text-sm text-slate-600 max-h-28 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed border-b border-slate-200/60 bg-slate-100/50">
+                                    {{ formItem[col.key] || '尚無歷史紀錄...' }}
+                                </div>
+                                <input type="text" v-model="newNotes[col.key]" placeholder="輸入新紀錄 (自動押上時間戳記)" class="block w-full border-0 px-4 py-3 text-sm outline-none bg-transparent placeholder-slate-400 font-medium">
+                            </div>
+                        </div>
+
+                        <div class="col-span-1 md:col-span-2 mt-4">
+                            <label class="flex items-start sm:items-center p-4 bg-white border-2 border-red-100 rounded-2xl cursor-pointer hover:bg-red-50 hover:border-red-200 transition-all shadow-sm group">
+                                <div class="relative flex items-center mt-1 sm:mt-0">
+                                    <input type="checkbox" v-model="formItem.is_terminated" class="peer sr-only">
+                                    <div class="w-6 h-6 bg-slate-100 border-2 border-slate-300 rounded flex items-center justify-center peer-checked:bg-red-500 peer-checked:border-red-500 transition-colors">
+                                        <i class="fas fa-check text-white text-xs opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <span class="block text-base font-extrabold text-red-700 group-hover:text-red-800 transition-colors">將此門號標記為「已退租」或「解約」</span>
+                                    <span class="block text-sm text-red-400/80 mt-1 font-medium">勾選並儲存後，此資料將自動轉移至已退租區塊。</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 border-t border-slate-100 bg-white flex flex-col-reverse sm:flex-row justify-end gap-3">
+                    <button @click="isModalOpen = false" class="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-50 hover:border-slate-300 transition-all w-full sm:w-auto text-center">取消</button>
+                    <button @click="saveForm" class="px-8 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30 hover:shadow-lg hover:bg-blue-700 transition-all active:scale-95 w-full sm:w-auto flex items-center justify-center">
+                        <i class="fas fa-save mr-2"></i>確認儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== SELECT OPTIONS MODAL ====== -->
+        <div v-if="showSelectModal" class="fixed inset-0 z-[60] overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex justify-center items-center p-4 animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+                <div class="p-5 border-b border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800">編輯下拉選項：{{ editingSelectCol?.label }}</h3>
+                </div>
+                <div class="p-5 space-y-3">
+                    <div v-for="(opt, i) in selectOptionsList" :key="i" class="flex items-center gap-3">
+                        <input type="text" v-model="selectOptionsList[i]" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <button @click="selectOptionsList.splice(i, 1)" class="text-red-400 hover:text-red-600 p-1"><i class="fas fa-times"></i></button>
+                    </div>
+                    <button @click="selectOptionsList.push('')" class="w-full py-2 border-2 border-dashed border-slate-200 rounded-lg text-sm text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all">
+                        <i class="fas fa-plus mr-1"></i>新增選項
+                    </button>
+                </div>
+                <div class="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                    <button @click="showSelectModal = false" class="px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-200 transition-all">取消</button>
+                    <button @click="saveSelectOptions" class="px-6 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md">儲存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== TOAST NOTIFICATION ====== -->
+        <transition-group name="toast" tag="div" class="fixed top-6 right-6 z-[70] space-y-2">
+            <div v-for="toast in toasts" :key="toast.id"
+                class="flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in max-w-sm"
+                :class="toast.type === 'success' ? 'bg-emerald-600 text-white' : toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white'">
+                <i :class="toast.type === 'success' ? 'fas fa-check-circle' : toast.type === 'error' ? 'fas fa-times-circle' : 'fas fa-info-circle'"></i>
+                <span>{{ toast.message }}</span>
+            </div>
+        </transition-group>
+
+        <!-- ====== FAB (Floating Action Button) ====== -->
+        <div class="fab-menu no-print" v-if="currentTab === 'active' || currentTab === 'terminated'">
+            <div class="fab-sub flex flex-col items-end gap-2 mb-3" :class="fabOpen ? 'show' : ''">
+                <button @click="openAddModal; fabOpen = false" class="fab-btn bg-indigo-600 text-white w-12 h-12 shadow-lg">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button @click="triggerFileUpload; fabOpen = false" class="fab-btn bg-emerald-500 text-white w-12 h-12 shadow-lg">
+                    <i class="fas fa-file-import"></i>
+                </button>
+            </div>
+            <button @click="fabOpen = !fabOpen" class="fab-btn bg-blue-700 text-white" :style="fabOpen ? 'transform: rotate(45deg)' : ''">
+                <i class="fas fa-plus text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const generateId = () => Math.random().toString(36).substr(2, 9);
+                const currentTab = ref('active');
+                const searchQuery = ref('');
+                const items = ref([]);
+                const isModalOpen = ref(false);
+                const isEditing = ref(false);
+                const formItem = ref({});
+                const newNotes = ref({});
+                const statGroupBy = ref('部門');
+                const selectedStatItem = ref(null);
+                const sortKey = ref('');
+                const sortAsc = ref(true);
+                const currentPage = ref(1);
+                const pageSize = ref(25);
+                const showFilter = ref(false);
+                const filters = ref({});
+                const isDark = ref(false);
+                const fabOpen = ref(false);
+                const showSelectModal = ref(false);
+                const editingSelectCol = ref(null);
+                const selectOptionsList = ref([]);
+                const toasts = ref([]);
+
+                // Analytics
+                const analyticsDimA = ref('部門');
+                const analyticsDimB = ref('count');
+                const chartType = ref('bar');
+
+                const columns = ref([
+                    { key: '識別碼', label: '識別碼', visible: true, type: 'text' },
+                    { key: '設備機構代號', label: '設備機構代號', visible: true, type: 'text' },
+                    { key: '編號門號', label: '編號門號', visible: true, type: 'text' },
+                    { key: '系統商名稱', label: '系統商名稱', visible: true, type: 'text' },
+                    { key: '類別', label: '類別', visible: true, type: 'select', options: ['一般門號', '專案門號', 'IoT門號', '固網', '其他'] },
+                    { key: '使用人/申請人', label: '使用人/申請人', visible: true, type: 'text' },
+                    { key: '部門', label: '部門', visible: true, type: 'select', options: ['資訊部', '業務部', '管理部', '研發部', '財務部', '人事部', '其他'] },
+                    { key: '申裝日期', label: '申裝日期', visible: true, type: 'date' },
+                    { key: '專案編號', label: '專案編號', visible: true, type: 'text' },
+                    { key: '狀態', label: '狀態', visible: true, type: 'select', options: ['使用中', '借用中', '閒置', '停用'] },
+                    { key: '申裝地址', label: '申裝地址', visible: true, type: 'text' },
+                    { key: '使用異動紀錄', label: '使用異動紀錄', visible: true, type: 'textarea' },
+                    { key: '備註1', label: '備註1', visible: true, type: 'textarea' },
+                    { key: '備註2', label: '備註2', visible: true, type: 'textarea' }
+                ]);
+
+                const colManage = ref({ newKey: '', newType: 'text' });
+
+                // Chart refs
+                const statsChart = ref(null);
+                const analyticsChart = ref(null);
+                let statsChartInstance = null;
+                let analyticsChartInstance = null;
+
+                // Toast system
+                const showToast = (message, type = 'info') => {
+                    const id = Date.now();
+                    toasts.value.push({ id, message, type });
+                    setTimeout(() => {
+                        toasts.value = toasts.value.filter(t => t.id !== id);
+                    }, 3500);
+                };
+
+                // Dark mode
+                const toggleDarkMode = () => {
+                    isDark.value = !isDark.value;
+                    document.documentElement.classList.toggle('dark', isDark.value);
+                    localStorage.setItem('mic_dark_mode', isDark.value ? '1' : '0');
+                };
+
+                // Tab switching
+                const switchTab = (tab) => {
+                    currentTab.value = tab;
+                    currentPage.value = 1;
+                    selectedStatItem.value = null;
+                };
+
+                // Init
+                onMounted(() => {
+                    const savedData = localStorage.getItem('mic_telecom_data');
+                    if (savedData) items.value = JSON.parse(savedData);
+
+                    const savedCols = localStorage.getItem('mic_telecom_cols');
+                    if (savedCols) columns.value = JSON.parse(savedCols);
+
+                    const darkMode = localStorage.getItem('mic_dark_mode');
+                    if (darkMode === '1') { isDark.value = true; document.documentElement.classList.add('dark'); }
+
+                    // Keyboard shortcuts
+                    document.addEventListener('keydown', handleKeyboard);
+                });
+
+                onUnmounted(() => {
+                    document.removeEventListener('keydown', handleKeyboard);
+                });
+
+                const handleKeyboard = (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.key === 'f') { e.preventDefault(); showFilter.value = true; }
+                        if (e.key === 'e') { e.preventDefault(); exportToExcel(); }
+                        if (e.key === 'n') { e.preventDefault(); openAddModal(); }
+                        if (e.key === '1') { e.preventDefault(); switchTab('active'); }
+                        if (e.key === '2') { e.preventDefault(); switchTab('terminated'); }
+                        if (e.key === '3') { e.preventDefault(); switchTab('stats'); }
+                        if (e.key === '4') { e.preventDefault(); switchTab('analytics'); }
+                    }
+                    if (e.key === 'Escape' && isModalOpen.value) { isModalOpen.value = false; }
+                };
+
+                watch(items, (newVal) => { localStorage.setItem('mic_telecom_data', JSON.stringify(newVal)); }, { deep: true });
+                watch(columns, (newVal) => { localStorage.setItem('mic_telecom_cols', JSON.stringify(newVal)); }, { deep: true });
+                watch(statGroupBy, () => { selectedStatItem.value = null; });
+                watch(currentTab, () => { currentPage.value = 1; });
+
+                // ====== COMPUTED ======
+
+                const analyticsColumns = computed(() => columns.value.filter(c => c.type === 'text' || c.type === 'select'));
+                const filterableColumns = computed(() => columns.value.filter(c => c.type !== 'textarea'));
+
+                const activeFilterCount = computed(() => Object.values(filters.value).filter(v => v !== '' && v !== undefined).length);
+
+                const filteredItems = computed(() => {
+                    let list = items.value;
+                    if (currentTab.value === 'active') { list = list.filter(item => !item.is_terminated); }
+                    else if (currentTab.value === 'terminated') { list = list.filter(item => item.is_terminated); }
+
+                    // Apply advanced filters
+                    for (const [key, val] of Object.entries(filters.value)) {
+                        if (val && val !== '') {
+                            list = list.filter(item => String(item[key] || '').toLowerCase() === val.toLowerCase());
+                        }
+                    }
+
+                    if (!searchQuery.value) {
+                        // Apply sorting even without search
+                        if (sortKey.value) {
+                            list = [...list].sort((a, b) => {
+                                const aVal = String(a[sortKey.value] || '').toLowerCase();
+                                const bVal = String(b[sortKey.value] || '').toLowerCase();
+                                if (aVal < bVal) return sortAsc.value ? -1 : 1;
+                                if (aVal > bVal) return sortAsc.value ? 1 : -1;
+                                return 0;
+                            });
+                        }
+                        return list;
+                    }
+                    const q = searchQuery.value.toLowerCase();
+                    list = list.filter(item => {
+                        return columns.value.some(col => {
+                            if (!col.visible) return false;
+                            const val = item[col.key];
+                            return val && String(val).toLowerCase().includes(q);
+                        });
+                    });
+                    if (sortKey.value) {
+                        list = [...list].sort((a, b) => {
+                            const aVal = String(a[sortKey.value] || '').toLowerCase();
+                            const bVal = String(b[sortKey.value] || '').toLowerCase();
+                            if (aVal < bVal) return sortAsc.value ? -1 : 1;
+                            if (aVal > bVal) return sortAsc.value ? 1 : -1;
+                            return 0;
+                        });
+                    }
+                    return list;
+                });
+
+                const totalPages = computed(() => Math.max(1, Math.ceil(filteredItems.value.length / pageSize.value)));
+
+                const paginatedItems = computed(() => {
+                    const start = (currentPage.value - 1) * pageSize.value;
+                    return filteredItems.value.slice(start, start + pageSize.value);
+                });
+
+                const visiblePages = computed(() => {
+                    const total = totalPages.value;
+                    const current = currentPage.value;
+                    const pages = [];
+                    if (total <= 7) {
+                        for (let i = 1; i <= total; i++) pages.push(i);
+                    } else {
+                        pages.push(1);
+                        if (current > 3) pages.push('...');
+                        const start = Math.max(2, current - 1);
+                        const end = Math.min(total - 1, current + 1);
+                        for (let i = start; i <= end; i++) pages.push(i);
+                        if (current < total - 2) pages.push('...');
+                        pages.push(total);
+                    }
+                    return pages;
+                });
+
+                const activeCount = computed(() => items.value.filter(i => !i.is_terminated).length);
+                const terminatedCount = computed(() => items.value.filter(i => i.is_terminated).length);
+                const usingCount = computed(() => items.value.filter(i => !i.is_terminated && i['狀態'] === '使用中').length);
+                const borrowCount = computed(() => items.value.filter(i => !i.is_terminated && i['狀態'] === '借用中').length);
+
+                const statsData = computed(() => {
+                    const list = items.value.filter(item => !item.is_terminated);
+                    const counts = {};
+                    list.forEach(item => {
+                        const key = item[statGroupBy.value] || '未填寫/未分類';
+                        counts[key] = (counts[key] || 0) + 1;
+                    });
+                    const total = list.length;
+                    return Object.entries(counts)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k, v]) => [k, v, 0, total > 0 ? ((v / total) * 100).toFixed(1) : '0.0']);
+                });
+
+                const statDetailedItems = computed(() => {
+                    if (!selectedStatItem.value) return [];
+                    const list = items.value.filter(item => !item.is_terminated);
+                    return list.filter(item => {
+                        const key = item[statGroupBy.value] || '未填寫/未分類';
+                        return key === selectedStatItem.value;
+                    });
+                });
+
+                // Cross-tab data
+                const crossTabKeys = computed(() => {
+                    const list = items.value.filter(item => !item.is_terminated);
+                    const keys = new Set();
+                    if (analyticsDimB.value === 'count') return ['數量'];
+                    const col = columns.value.find(c => c.key === analyticsDimB.value);
+                    if (!col) return [];
+                    list.forEach(item => {
+                        if (item[analyticsDimB.value]) keys.add(item[analyticsDimB.value]);
+                    });
+                    return [...keys].sort();
+                });
+
+                const crossTabData = computed(() => {
+                    const list = items.value.filter(item => !item.is_terminated);
+                    if (analyticsDimB.value === 'count') {
+                        const dimA = analyticsDimA.value;
+                        const counts = {};
+                        let grandTotal = 0;
+                        list.forEach(item => {
+                            const key = item[dimA] || '未填寫';
+                            counts[key] = (counts[key] || 0) + 1;
+                            grandTotal++;
+                        });
+                        return Object.entries(counts).map(([key, val]) => ({ key, '數量': val, __total: val }));
+                    }
+
+                    const dimA = analyticsDimA.value;
+                    const dimB = analyticsDimB.value;
+                    const matrix = {};
+                    list.forEach(item => {
+                        const aKey = item[dimA] || '未填寫';
+                        const bKey = item[dimB] || '未分類';
+                        if (!matrix[aKey]) matrix[aKey] = { key: aKey, __total: 0 };
+                        matrix[aKey][bKey] = (matrix[aKey][bKey] || 0) + 1;
+                        matrix[aKey].__total++;
+                    });
+                    const keys = crossTabKeys.value;
+                    return Object.values(matrix).map(row => {
+                        keys.forEach(k => { if (!row[k]) row[k] = 0; });
+                        return row;
+                    });
+                });
+
+                const crossTabMax = computed(() => {
+                    const result = {};
+                    crossTabData.value.forEach(row => {
+                        result[row.key] = {};
+                        crossTabKeys.value.forEach(k => {
+                            result[row.key][k] = row[k] || 0;
+                        });
+                    });
+                    return result;
+                });
+
+                // Anomaly detection
+                const anomalyAlerts = computed(() => {
+                    const alerts = [];
+                    const active = items.value.filter(i => !i.is_terminated);
+
+                    // Check for items without 部門
+                    const noDept = active.filter(i => !i['部門'] || i['部門'] === '');
+                    if (noDept.length > 0) {
+                        alerts.push({
+                            level: 'medium',
+                            title: `有 ${noDept.length} 筆門號未設定部門`,
+                            message: `${noDept.slice(0, 3).map(i => i['識別碼'] || i['編號門號']).join('、')} 等門號缺少部門資訊，建議儘速補齊。`
+                        });
+                    }
+
+                    // Check for items without 使用人/申請人
+                    const noUser = active.filter(i => !i['使用人/申請人'] || i['使用人/申請人'] === '');
+                    if (noUser.length > 0) {
+                        alerts.push({
+                            level: noUser.length > 5 ? 'high' : 'medium',
+                            title: `有 ${noUser.length} 筆門號未設定使用人`,
+                            message: `門號缺少使用人/申請人資訊，可能導致資產追蹤困難。`
+                        });
+                    }
+
+                    // Check for items with status "閒置" over 90 days
+                    const idle = active.filter(i => i['狀態'] === '閒置');
+                    if (idle.length > 0) {
+                        alerts.push({
+                            level: idle.length > 3 ? 'high' : 'low',
+                            title: `${idle.length} 筆門號處於「閒置」狀態`,
+                            message: `閒置門號可能產生不必要的費用，建議檢討是否需要退租。`
+                        });
+                    }
+
+                    // Check for duplicate 編號門號
+                    const phoneCounts = {};
+                    active.forEach(i => {
+                        if (i['編號門號']) phoneCounts[i['編號門號']] = (phoneCounts[i['編號門號']] || 0) + 1;
+                    });
+                    const dupes = Object.entries(phoneCounts).filter(([k, v]) => v > 1);
+                    if (dupes.length > 0) {
+                        alerts.push({
+                            level: 'high',
+                            title: `偵測到 ${dupes.length} 筆重複門號`,
+                            message: `重複門號：${dupes.map(([k]) => k).join('、')}。請檢查是否有重複匯入。`
+                        });
+                    }
+
+                    return alerts;
+                });
+
+                // ====== METHODS ======
+
+                const getStatusClass = (colKey, val) => {
+                    if (colKey === '狀態') {
+                        if (val === '借用中') return 'bg-red-100 text-red-700 px-2 py-1 rounded-md text-xs font-bold';
+                        if (val === '使用中') return 'bg-green-100 text-green-700 px-2 py-1 rounded-md text-xs font-bold';
+                        if (val === '閒置') return 'bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-bold';
+                        if (val === '停用') return 'bg-gray-200 text-gray-600 px-2 py-1 rounded-md text-xs font-bold';
+                    }
+                    return '';
+                };
+
+                const toggleSort = (key) => {
+                    if (sortKey.value === key) {
+                        sortAsc.value = !sortAsc.value;
+                    } else {
+                        sortKey.value = key;
+                        sortAsc.value = true;
+                    }
+                };
+
+                const getFilterOptions = (key) => {
+                    const set = new Set();
+                    items.value.forEach(item => {
+                        if (item[key] && item[key] !== '') set.add(String(item[key]));
+                    });
+                    return [...set].sort();
+                };
+
+                const clearFilters = () => {
+                    filters.value = {};
+                    showToast('已清除所有篩選條件', 'success');
+                };
+
+                const printView = () => { window.print(); };
+
+                const triggerFileUpload = () => { document.getElementById('fileUpload').click(); };
+
+                const handleFileUpload = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+                        if (json.length > 0) {
+                            const keys = Object.keys(json[0]);
+                            keys.forEach(k => {
+                                if (!columns.value.find(c => c.key === k)) {
+                                    let type = 'text';
+                                    if (k.includes('日期')) type = 'date';
+                                    else if (k.includes('備註') || k.includes('紀錄')) type = 'textarea';
+                                    else if (k.includes('金額') || k.includes('費用') || k.includes('數量')) type = 'number';
+                                    columns.value.push({ key: k, label: k, visible: true, type });
+                                }
+                            });
+                            const newItems = json.map(row => {
+                                let terminated = false;
+                                if (row['狀態'] && (String(row['狀態']).includes('解約') || String(row['狀態']).includes('退租') || String(row['狀態']).includes('停用'))) {
+                                    terminated = true;
+                                }
+                                return { ...row, __id: generateId(), is_terminated: terminated };
+                            });
+                            items.value = [...items.value, ...newItems];
+                            showToast(`資料匯入成功！共新增 ${newItems.length} 筆記錄。`, 'success');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                    e.target.value = '';
+                };
+
+                const exportToExcel = () => {
+                    if (items.value.length === 0) { showToast('目前沒有資料可以匯出', 'error'); return; }
+                    const exportData = items.value.map(item => {
+                        const row = { ...item };
+                        if (row.is_terminated) row['狀態'] = '已解約/退租';
+                        delete row.__id; delete row.is_terminated;
+                        return row;
+                    });
+                    const worksheet = XLSX.utils.json_to_sheet(exportData);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "門號資料庫");
+                    XLSX.writeFile(workbook, "MIC電信門號管理系統_最新匯出.xlsx");
+                    showToast('Excel 檔案已成功匯出', 'success');
+                };
+
+                const exportStatsReport = () => {
+                    if (statsData.value.length === 0) { showToast('無統計資料可匯出', 'error'); return; }
+                    const data = statsData.value.map(([name, count, , pct]) => ({
+                        [statGroupBy.value]: name, '門號數量': count, '佔比(%)': parseFloat(pct)
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, '統計報告');
+                    XLSX.writeFile(wb, `MIC統計報告_${statGroupBy.value}_${new Date().toISOString().slice(0,10)}.xlsx`);
+                    showToast('統計報告已匯出', 'success');
+                };
+
+                const exportAnalyticsExcel = () => {
+                    if (crossTabData.value.length === 0) { showToast('無分析資料可匯出', 'error'); return; }
+                    const data = crossTabData.value.map(row => {
+                        const obj = { [analyticsDimA.value]: row.key };
+                        crossTabKeys.value.forEach(k => { obj[k] = row[k] || 0; });
+                        obj['總計'] = row.__total || 0;
+                        return obj;
+                    });
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, '交叉分析');
+                    XLSX.writeFile(wb, `MIC交叉分析_${new Date().toISOString().slice(0,10)}.xlsx`);
+                    showToast('交叉分析報告已匯出', 'success');
+                };
+
+                const syncGoogleDrive = () => { showToast('【雲端串接提示】此為架構預留擴充接口，可於日後介接 Google Drive API 進行實體備份上傳', 'info'); };
+
+                const openAddModal = () => {
+                    formItem.value = { is_terminated: false };
+                    newNotes.value = {};
+                    columns.value.filter(c => c.type === 'textarea').forEach(c => { newNotes.value[c.key] = ''; });
+                    isEditing.value = false; isModalOpen.value = true;
+                };
+
+                const editItem = (item) => {
+                    formItem.value = JSON.parse(JSON.stringify(item));
+                    newNotes.value = {};
+                    columns.value.filter(c => c.type === 'textarea').forEach(c => { newNotes.value[c.key] = ''; });
+                    isEditing.value = true; isModalOpen.value = true;
+                };
+
+                const duplicateItem = (item) => {
+                    const newItem = JSON.parse(JSON.stringify(item));
+                    newItem.__id = generateId();
+                    // Clear fields that should be unique
+                    if (newItem['編號門號']) newItem['編號門號'] = '';
+                    if (newItem['識別碼']) newItem['識別碼'] = '';
+                    items.value.unshift(newItem);
+                    showToast('已成功複製此筆資料（請編輯新增項目後儲存）', 'success');
+                };
+
+                const deleteItem = (item) => {
+                    const label = item['識別碼'] || item['編號門號'] || '此筆資料';
+                    if (confirm(`確定要刪除「${label}」嗎？\n此操作無法復原。`)) {
+                        items.value = items.value.filter(i => i.__id !== item.__id);
+                        showToast('已刪除該筆記錄', 'success');
+                    }
+                };
+
+                const loadCoreData = () => {
+                    const targetKey = formItem.value['編號門號'] || formItem.value['識別碼'] || formItem.value['設備機構代號'];
+                    if (!targetKey) { showToast('請至少先輸入「識別碼」、「設備機構代號」或「編號門號」其中一項', 'error'); return; }
+                    const match = items.value.find(i => i['編號門號'] === targetKey || i['識別碼'] === targetKey || i['設備機構代號'] === targetKey);
+                    if (match) {
+                        if (confirm(`找到關聯資料 (識別碼: ${match['識別碼']})，是否自動填滿其餘欄位？`)) {
+                            for (let k in match) {
+                                if (k !== '__id' && (!formItem.value[k] || formItem.value[k] === '')) {
+                                    formItem.value[k] = match[k];
+                                }
+                            }
+                            showToast('已自動填入歷史資料', 'success');
+                        }
+                    } else { showToast('系統資料庫中查無相符的歷史紀錄', 'error'); }
+                };
+
+                const getNowStr = () => {
+                    const d = new Date();
+                    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                };
+
+                const saveForm = () => {
+                    columns.value.filter(c => c.type === 'textarea').forEach(key => {
+                        if (newNotes.value[key] && newNotes.value[key].trim() !== '') {
+                            const currentVal = formItem.value[key] || '';
+                            const prefix = currentVal ? currentVal + '\n' : '';
+                            formItem.value[key] = prefix + `[${getNowStr()}] ${newNotes.value[key]}`;
+                        }
+                    });
+                    if (isEditing.value) {
+                        const idx = items.value.findIndex(i => i.__id === formItem.value.__id);
+                        if (idx !== -1) { items.value[idx] = { ...formItem.value }; }
+                        showToast('資料已成功更新', 'success');
+                    } else {
+                        formItem.value.__id = generateId();
+                        items.value.unshift({ ...formItem.value });
+                        showToast('新紀錄已成功建立', 'success');
+                    }
+                    isModalOpen.value = false;
+                };
+
+                const addColumn = () => {
+                    const key = colManage.value.newKey.trim();
+                    if (!key) { showToast('請輸入自訂欄位名稱！', 'error'); return; }
+                    if (columns.value.find(c => c.key === key)) { showToast('該欄位名稱已存在系統中！', 'error'); return; }
+                    columns.value.push({ key: key, label: key, visible: true, type: colManage.value.newType });
+                    colManage.value.newKey = '';
+                    showToast('新欄位已成功建立', 'success');
+                };
+
+                const deleteColumn = (idx) => {
+                    if (confirm('確定要刪除此欄位嗎？\n(原本紀錄中的該項資料不會遺失，僅從顯示介面與選單中移除)')) {
+                        columns.value.splice(idx, 1);
+                        showToast('欄位已刪除', 'success');
+                    }
+                };
+
+                const moveColumnUp = (idx) => {
+                    if (idx > 0) {
+                        const temp = columns.value[idx];
+                        columns.value.splice(idx, 1);
+                        columns.value.splice(idx - 1, 0, temp);
+                    }
+                };
+
+                const moveColumnDown = (idx) => {
+                    if (idx < columns.value.length - 1) {
+                        const temp = columns.value[idx];
+                        columns.value.splice(idx, 1);
+                        columns.value.splice(idx + 1, 0, temp);
+                    }
+                };
+
+                const importColumnsFromFile = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+                        if (json.length > 0) {
+                            const keys = Object.keys(json[0]);
+                            let added = 0;
+                            keys.forEach(k => {
+                                if (!columns.value.find(c => c.key === k)) {
+                                    let type = 'text';
+                                    if (k.includes('日期')) type = 'date';
+                                    else if (k.includes('備註') || k.includes('紀錄')) type = 'textarea';
+                                    else if (k.includes('金額') || k.includes('費用')) type = 'number';
+                                    columns.value.push({ key: k, label: k, visible: true, type });
+                                    added++;
+                                }
+                            });
+                            showToast(`成功匯入 ${added} 個新欄位`, 'success');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                    e.target.value = '';
+                };
+
+                const editSelectOptions = (col) => {
+                    editingSelectCol.value = col;
+                    selectOptionsList.value = [...(col.options || [])];
+                    showSelectModal.value = true;
+                };
+
+                const saveSelectOptions = () => {
+                    if (editingSelectCol.value) {
+                        editingSelectCol.value.options = selectOptionsList.value.filter(o => o.trim() !== '');
+                        showToast('下拉選項已更新', 'success');
+                    }
+                    showSelectModal.value = false;
+                };
+
+                // ====== CHART RENDERING ======
+
+                const chartColors = [
+                    '#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4',
+                    '#ec4899','#84cc16','#f97316','#14b8a6','#64748b','#a855f7',
+                    '#e11d48','#0891b2','#65a30d','#d946ef','#0ea5e9','#facc15'
+                ];
+
+                watch(currentTab, (tab) => {
+                    nextTick(() => {
+                        if (tab === 'stats') renderStatsChart();
+                        if (tab === 'analytics') renderAnalyticsChart();
+                    });
+                });
+
+                watch([statsData, statGroupBy], () => {
+                    if (currentTab.value === 'stats') renderStatsChart();
+                });
+
+                watch([crossTabData, analyticsDimA, analyticsDimB, chartType], () => {
+                    if (currentTab.value === 'analytics') renderAnalyticsChart();
+                });
+
+                const renderStatsChart = () => {
+                    if (!statsChart.value) return;
+                    if (statsChartInstance) statsChartInstance.destroy();
+
+                    const data = statsData.value;
+                    const labels = data.slice(0, 15).map(d => d[0]);
+                    const values = data.slice(0, 15).map(d => d[1]);
+                    const colors = labels.map((_, i) => chartColors[i % chartColors.length]);
+
+                    statsChartInstance = new Chart(statsChart.value, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: '門號數量',
+                                data: values,
+                                backgroundColor: colors.map(c => c + '80'),
+                                borderColor: colors,
+                                borderWidth: 2,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#1e293b',
+                                    titleFont: { size: 14, weight: 'bold' },
+                                    bodyFont: { size: 13 },
+                                    padding: 12,
+                                    cornerRadius: 8,
+                                    callbacks: {
+                                        afterBody: (ctx) => {
+                                            const idx = ctx[0].dataIndex;
+                                            return `佔比：${data[idx][3]}%`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: '#f1f5f9' },
+                                    ticks: { font: { size: 12 } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { size: 11 } }
+                                }
+                            }
+                        }
+                    });
+                };
+
+                const renderAnalyticsChart = () => {
+                    if (!analyticsChart.value) return;
+                    if (analyticsChartInstance) analyticsChartInstance.destroy();
+
+                    const data = crossTabData.value;
+                    const labels = data.map(d => d.key);
+
+                    if (chartType.value === 'pie' || chartType.value === 'doughnut') {
+                        const totals = data.map(d => d.__total || 0);
+                        const colors = labels.map((_, i) => chartColors[i % chartColors.length]);
+                        analyticsChartInstance = new Chart(analyticsChart.value, {
+                            type: chartType.value,
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    data: totals,
+                                    backgroundColor: colors.map(c => c + 'cc'),
+                                    borderColor: colors,
+                                    borderWidth: 2
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'right', labels: { padding: 12, font: { size: 12 } } },
+                                    tooltip: {
+                                        backgroundColor: '#1e293b',
+                                        padding: 10,
+                                        cornerRadius: 8,
+                                        callbacks: {
+                                            afterBody: (ctx) => {
+                                                const total = ctx[0].dataset.data.reduce((a, b) => a + b, 0);
+                                                const val = ctx[0].parsed;
+                                                return `佔比：${((val / total) * 100).toFixed(1)}%`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    } else if (chartType.value === 'line') {
+                        analyticsChartInstance = new Chart(analyticsChart.value, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: analyticsDimB.value === 'count' ? '門號數量' : analyticsDimB.value,
+                                    data: data.map(d => d.__total || 0),
+                                    borderColor: '#6366f1',
+                                    backgroundColor: '#6366f120',
+                                    borderWidth: 3,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointBackgroundColor: '#6366f1',
+                                    pointRadius: 5,
+                                    pointHoverRadius: 8
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { labels: { font: { size: 13 } } } },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                                    x: { grid: { display: false } }
+                                }
+                            }
+                        });
+                    } else {
+                        // Bar chart for cross-tab
+                        const keys = crossTabKeys.value;
+                        const datasets = keys.map((k, i) => ({
+                            label: k,
+                            data: data.map(d => d[k] || 0),
+                            backgroundColor: chartColors[i % chartColors.length] + '80',
+                            borderColor: chartColors[i % chartColors.length],
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }));
+                        analyticsChartInstance = new Chart(analyticsChart.value, {
+                            type: 'bar',
+                            data: { labels: labels, datasets },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { labels: { font: { size: 12 } } } },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                                    x: { grid: { display: false } }
+                                }
+                            }
+                        });
+                    }
+                };
+
+                return {
+                    currentTab, items, columns, searchQuery, filteredItems, paginatedItems,
+                    statsData, statGroupBy, selectedStatItem, statDetailedItems,
+                    triggerFileUpload, handleFileUpload, exportToExcel, exportStatsReport, exportAnalyticsExcel,
+                    syncGoogleDrive, printView,
+                    isModalOpen, isEditing, formItem, newNotes, openAddModal, editItem, saveForm, loadCoreData,
+                    colManage, addColumn, deleteColumn, moveColumnUp, moveColumnDown,
+                    importColumnsFromFile,
+                    showSelectModal, editingSelectCol, selectOptionsList, editSelectOptions, saveSelectOptions,
+                    sortKey, sortAsc, toggleSort, getStatusClass,
+                    currentPage, pageSize, totalPages, visiblePages,
+                    showFilter, filters, clearFilters, activeFilterCount, filterableColumns,
+                    isDark, toggleDarkMode,
+                    fabOpen,
+                    toasts, showToast,
+                    switchTab, duplicateItem, deleteItem,
+                    activeCount, terminatedCount, usingCount, borrowCount,
+                    analyticsDimA, analyticsDimB, chartType, analyticsColumns,
+                    crossTabData, crossTabKeys, crossTabMax, anomalyAlerts,
+                    statsChart, analyticsChart,
+                    getFilterOptions
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
